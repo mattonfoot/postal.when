@@ -1,6 +1,6 @@
 var ForkJoin = function ( queue, onSuccess, onError, options ) {
 	var self = this,
-		_onError = (Object.prototype.toString.call( onError ) === "[object Function]") ? onError : function () {
+		errorHandler = (Object.prototype.toString.call( onError ) === "[object Function]") ? onError : function () {
 		},
 		_options = (Object.prototype.toString.call( onError ) === "[object Object]") ? onError : options || {},
 		_subscriptions = [],
@@ -32,6 +32,20 @@ var ForkJoin = function ( queue, onSuccess, onError, options ) {
 
 			}
 		};
+	
+	self.catch = function( errorHandler ) {
+		_onError = errorHandler;
+		var original = onSuccess;
+		var safeCallback = function() {
+			try {
+				original.apply( this, arguments );
+			} catch (err) {
+				errorHandler( err, arguments[ 0 ] );
+			}
+		};
+		onSuccess = safeCallback;
+		return this;
+	};
 
 	self.dispose = function () {
 		_.each( _subscriptions, function ( sub ) {
@@ -39,6 +53,8 @@ var ForkJoin = function ( queue, onSuccess, onError, options ) {
 		} );
 		_subscriptions = [];
 	};
+	
+	self.catch( errorHandler );
 
 	_.each( queue, function ( sub ) {
 		var subscriptionDefinition = postal.subscribe( sub );
